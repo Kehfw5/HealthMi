@@ -74,18 +74,34 @@ jobs:
           security set-keychain-settings -lut 21600 build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
 
-          # 导入证书（P12 无加密，用空密码导入）
-          printf '%s' "$P12_CERT_BASE64" | base64 --decode > certificate.p12
-          if ! security import certificate.p12 -k build.keychain -P "" -T /usr/bin/codesign 2>import.err; then
-            echo "::error::证书导入失败，请检查 IOS_P12_CERT_BASE64 是否完整复制。"
-            cat import.err 2>/dev/null || true
+          # 解码 P12
+          printf '%s' "$P12_CERT_BASE64" | base64 -D > certificate.p12
+          if [ ! -s certificate.p12 ]; then
+            echo "::error::P12 解码失败，文件为空。请检查 IOS_P12_CERT_BASE64 是否完整。"
             exit 1
           fi
-          rm -f import.err
+
+          # 用 OpenSSL 提取证书和私钥为 PEM（绕过 macOS security import 的 P12 MAC 兼容性问题）
+          if ! openssl pkcs12 -in certificate.p12 -nokeys -out cert.pem -passin pass: 2>openssl.err; then
+            echo "::error::OpenSSL 无法读取 P12，请检查 IOS_P12_CERT_BASE64 是否正确。"
+            cat openssl.err 2>/dev/null || true
+            exit 1
+          fi
+          openssl pkcs12 -in certificate.p12 -nocerts -nodes -out key.pem -passin pass: 2>/dev/null
+          rm -f openssl.err
+
+          if [ ! -s cert.pem ] || [ ! -s key.pem ]; then
+            echo "::error::证书或私钥提取失败。"
+            exit 1
+          fi
+
+          # 分别导入证书和私钥（PEM 格式无 MAC 验证问题）
+          security import cert.pem -k build.keychain -T /usr/bin/codesign >/dev/null 2>&1
+          security import key.pem -k build.keychain -T /usr/bin/codesign >/dev/null 2>&1
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain >/dev/null 2>&1
 
           # 导入描述文件
-          printf '%s' "$PROVISIONING_PROFILE_BASE64" | base64 --decode > profile.mobileprovision
+          printf '%s' "$PROVISIONING_PROFILE_BASE64" | base64 -D > profile.mobileprovision
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           PROFILE_UUID=$(security cms -D -i profile.mobileprovision 2>/dev/null | plutil -extract UUID raw - 2>/dev/null)
           if [ -z "$PROFILE_UUID" ]; then
@@ -96,10 +112,10 @@ jobs:
           echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
           echo "Profile imported (UUID hidden)."
 
-          # 验证签名身份已安装（不输出证书详情到日志）
+          # 验证签名身份已安装
           IDENTITY_COUNT=$(security find-identity -v -p codesigning build.keychain 2>/dev/null | grep -c "iPhone\|Apple")
           if [ "$IDENTITY_COUNT" -lt 1 ]; then
-            echo "::error::钥匙串中未找到有效的代码签名身份，请检查证书是否正确。"
+            echo "::error::钥匙串中未找到有效的代码签名身份。"
             security find-identity -p codesigning build.keychain
             exit 1
           fi
@@ -108,7 +124,7 @@ jobs:
           # 设置默认钥匙串
           security list-keychains -d user -s build.keychain >/dev/null 2>&1
 
-          rm -f certificate.p12 profile.mobileprovision
+          rm -f certificate.p12 cert.pem key.pem profile.mobileprovision
 
       - name: Archive (signed)
         if: ${{ vars.IOS_SIGNING_ENABLED == 'true' }}
