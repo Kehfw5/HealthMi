@@ -59,18 +59,10 @@ jobs:
           xcodebuild -project "$PROJECT_FILE" -scheme "$SCHEME" -configuration "$CONFIGURATION" -showBuildSettings | grep -E "PRODUCT_BUNDLE_IDENTIFIER|IPHONEOS_DEPLOYMENT_TARGET|SWIFT_VERSION|CODE_SIGN_STYLE" || true
 
       # ===== 正式签名路径（需配置 Secrets 才会执行）=====
-      # 需要在 GitHub 仓库 Secrets 中配置：
-      #   IOS_CODE_SIGN_IDENTITY   - 证书名称，例如 "Apple Development: xxx (TEAMID)"
-      #   IOS_DEVELOPMENT_TEAM     - 开发者团队 ID，例如 "ABCDE12345"
-      #   IOS_P12_CERT_BASE64      - .p12 证书文件的 base64 编码
-      #   IOS_P12_PASSWORD         - .p12 证书的密码
-      #   IOS_PROVISIONING_PROFILE - .mobileprovision 文件的 base64 编码
-      #   KEYCHAIN_PASSWORD        - 临时钥匙串密码
       - name: Import code signing credentials
         if: ${{ vars.IOS_SIGNING_ENABLED == 'true' }}
         env:
           P12_CERT_BASE64: ${{ secrets.IOS_P12_CERT_BASE64 }}
-          P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
           PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
@@ -82,10 +74,10 @@ jobs:
           security set-keychain-settings -lut 21600 build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
 
-          # 导入证书（用 printf 避免 echo 引入换行导致密码/内容异常）
+          # 导入证书（P12 无加密，用空密码导入）
           printf '%s' "$P12_CERT_BASE64" | base64 --decode > certificate.p12
-          if ! security import certificate.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign 2>import.err; then
-            echo "::error::证书导入失败。请检查 IOS_P12_PASSWORD 是否正确（当前证书密码是否为数字 1？），以及 IOS_P12_CERT_BASE64 是否完整复制。"
+          if ! security import certificate.p12 -k build.keychain -P "" -T /usr/bin/codesign 2>import.err; then
+            echo "::error::证书导入失败，请检查 IOS_P12_CERT_BASE64 是否完整复制。"
             cat import.err 2>/dev/null || true
             exit 1
           fi
@@ -142,7 +134,6 @@ jobs:
         if: ${{ vars.IOS_SIGNING_ENABLED == 'true' }}
         run: |
           set -eo pipefail
-          # 生成 exportOptions.plist（去掉前导空白，避免 plist 解析问题）
           sed 's/^[[:space:]]*//' > exportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -170,7 +161,6 @@ jobs:
             -exportPath build \
             -exportOptionsPlist exportOptions.plist
 
-          # 重命名导出的 IPA
           EXPORTED_IPA=$(ls build/*.ipa | head -1)
           if [ -n "$EXPORTED_IPA" ]; then
             cp "$EXPORTED_IPA" "$IPA_PATH"
@@ -220,9 +210,6 @@ jobs:
           fi
           echo "=== IPA generated successfully ==="
           ls -la "$IPA_PATH"
-          echo ""
-          echo "=== IPA contents ==="
-          unzip -l "$IPA_PATH" | head -30
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
