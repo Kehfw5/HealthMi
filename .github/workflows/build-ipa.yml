@@ -156,13 +156,18 @@ jobs:
           <plist version="1.0">
           <dict>
               <key>method</key>
-              <string>development</string>
+              <string>ad-hoc</string>
               <key>signingStyle</key>
               <string>manual</string>
               <key>teamID</key>
               <string>${{ secrets.IOS_DEVELOPMENT_TEAM }}</string>
               <key>signingCertificate</key>
               <string>${{ secrets.IOS_CODE_SIGN_IDENTITY }}</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>${{ env.BUNDLE_ID }}</key>
+                  <string>${PROFILE_UUID}</string>
+              </dict>
               <key>stripSwiftSymbols</key>
               <true/>
               <key>uploadBitcode</key>
