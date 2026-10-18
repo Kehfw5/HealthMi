@@ -1,4 +1,4 @@
-import HealthKit
+@preconcurrency import HealthKit
 import Foundation
 
 /// 最近一段时间的健康摘要（用于 App 内回显已同步的数据）。

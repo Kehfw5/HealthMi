@@ -1,4 +1,4 @@
-import HealthKit
+@preconcurrency import HealthKit
 import Foundation
 
 /// 小米模型 → HealthKit 对象映射与单位换算。

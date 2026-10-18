@@ -1,4 +1,4 @@
-import HealthKit
+@preconcurrency import HealthKit
 import Foundation
 
 /// HealthKit 授权与类型清单。
