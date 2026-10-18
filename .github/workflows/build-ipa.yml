@@ -35,7 +35,7 @@ jobs:
 
       - name: Select Xcode 16
         run: |
-          XCODE_PATH=$(ls -d /Applications/Xcode_16*.app | head -1)
+          XCODE_PATH=$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)
           if [ -z "$XCODE_PATH" ]; then
             echo "::error::Xcode 16 not found. Swift 6.0 requires Xcode 16+."
             exit 1
