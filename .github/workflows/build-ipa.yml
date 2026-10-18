@@ -82,23 +82,39 @@ jobs:
           security set-keychain-settings -lut 21600 build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
 
-          # 导入证书
-          echo "$P12_CERT_BASE64" | base64 --decode > certificate.p12
-          security import certificate.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          # 导入证书（用 printf 避免 echo 引入换行导致密码/内容异常）
+          printf '%s' "$P12_CERT_BASE64" | base64 --decode > certificate.p12
+          if ! security import certificate.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign 2>import.err; then
+            echo "::error::证书导入失败。请检查 IOS_P12_PASSWORD 是否正确（当前证书密码是否为数字 1？），以及 IOS_P12_CERT_BASE64 是否完整复制。"
+            cat import.err 2>/dev/null || true
+            exit 1
+          fi
+          rm -f import.err
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain >/dev/null 2>&1
 
           # 导入描述文件
-          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > profile.mobileprovision
+          printf '%s' "$PROVISIONING_PROFILE_BASE64" | base64 --decode > profile.mobileprovision
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          PROFILE_UUID=$(security cms -D -i profile.mobileprovision | plutil -extract UUID raw -)
+          PROFILE_UUID=$(security cms -D -i profile.mobileprovision 2>/dev/null | plutil -extract UUID raw - 2>/dev/null)
+          if [ -z "$PROFILE_UUID" ]; then
+            echo "::error::描述文件解析失败，请检查 IOS_PROVISIONING_PROFILE 是否完整复制。"
+            exit 1
+          fi
           cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
           echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
+          echo "Profile imported (UUID hidden)."
 
-          # 列出已安装的签名身份
-          security find-identity -v -p codesigning build.keychain
+          # 验证签名身份已安装（不输出证书详情到日志）
+          IDENTITY_COUNT=$(security find-identity -v -p codesigning build.keychain 2>/dev/null | grep -c "iPhone\|Apple")
+          if [ "$IDENTITY_COUNT" -lt 1 ]; then
+            echo "::error::钥匙串中未找到有效的代码签名身份，请检查证书是否正确。"
+            security find-identity -p codesigning build.keychain
+            exit 1
+          fi
+          echo "Signing identity installed ($IDENTITY_COUNT found)."
 
           # 设置默认钥匙串
-          security list-keychains -d user -s build.keychain
+          security list-keychains -d user -s build.keychain >/dev/null 2>&1
 
           rm -f certificate.p12 profile.mobileprovision
 
