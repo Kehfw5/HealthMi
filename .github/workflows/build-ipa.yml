@@ -182,8 +182,8 @@ jobs:
             -exportPath build \
             -exportOptionsPlist exportOptions.plist
 
-          EXPORTED_IPA=$(ls build/*.ipa | head -1)
-          if [ -n "$EXPORTED_IPA" ]; then
+          EXPORTED_IPA=$(ls build/*.ipa 2>/dev/null | head -1)
+          if [ -n "$EXPORTED_IPA" ] && [ "$EXPORTED_IPA" != "$IPA_PATH" ]; then
             cp "$EXPORTED_IPA" "$IPA_PATH"
           fi
 
