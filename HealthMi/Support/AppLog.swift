@@ -2,7 +2,7 @@ import os
 
 /// 统一日志入口，按 category 分类，便于在 Console.app 中过滤。
 enum AppLog {
-    static let subsystem = "com.healthmi.HealthMi"
+    static let subsystem = "app.lotus9796.mulberry6185"
 
     static let backgroundSync = Logger(subsystem: subsystem, category: "BackgroundSync")
     static let apiClient = Logger(subsystem: subsystem, category: "MiAPIClient")

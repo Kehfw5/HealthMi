@@ -3,7 +3,7 @@ import Security
 
 /// 小米凭据的 Keychain 存储。
 enum CredentialStore {
-    private static let service = "com.healthmi.HealthMi"
+    private static let service = "app.lotus9796.mulberry6185"
     /// 旧版 service 标识符（标识符统一前的值，用于一次性迁移）。
     private static let legacyService = "com.example.HealthMi"
     private static let userIdKey = "mi_fitness_user_id"

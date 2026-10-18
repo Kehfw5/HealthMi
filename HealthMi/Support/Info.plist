@@ -28,7 +28,7 @@
 	</array>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.healthmi.HealthMi.sync</string>
+		<string>app.lotus9796.mulberry6185.sync</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>

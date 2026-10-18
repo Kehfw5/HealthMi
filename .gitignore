@@ -17,6 +17,16 @@ build-device/
 # 本地工具/规划笔记
 .zcode/
 
+# 证书与签名（绝不要提交到仓库）
+*.p12
+*.p8
+*.mobileprovision
+*.cer
+*.certSigningRequest
+exportOptions.plist
+.ci-secrets/
+secrets/
+
 # 内置 Python 参考工具（mi-fitness-mcp-cn）
 tools/mi-fitness-mcp-cn/.venv/
 tools/mi-fitness-mcp-cn/__pycache__/

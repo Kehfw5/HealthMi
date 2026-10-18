@@ -4,7 +4,7 @@ import os
 
 /// BGAppRefreshTask 后台同步（模拟器不会触发，需真机运行验证）。
 enum BackgroundSync {
-    static let taskIdentifier = "com.healthmi.HealthMi.sync"
+    static let taskIdentifier = "app.lotus9796.mulberry6185.sync"
 
     /// 当前后台同步 Task 引用，用于 expirationHandler 取消。
     @MainActor private static var syncTask: Task<Void, Never>?
